@@ -1,4 +1,5 @@
 import ModMail, { ModMailDocument } from "../schemas/Modmail";
+import ModMailSettings from "../schemas/ModMailSettings";
 import { MODMAIL_CONFIG, ModMailCategory } from "../config/modmail";
 import {
   ActionRowBuilder,
@@ -59,6 +60,19 @@ export function registerModMail(client: Client) {
       if (message.author.bot || message.guild) return;
 
       const userId = message.author.id;
+
+      const settings = await ModMailSettings.findOne({
+        guildId: config.guildId,
+      });
+
+      if (!settings?.enabled) {
+        await sendDM(
+          message.author,
+          "Support Unavailable",
+          "Our ModMail system is currently disabled. Please try again later.",
+        );
+        return;
+      }
 
       let session: ModMailDocument | null = await ModMail.findOne({
         userId,
