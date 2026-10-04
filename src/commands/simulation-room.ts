@@ -1,6 +1,4 @@
 import {
-  ActionRowBuilder,
-  ButtonBuilder,
   ButtonStyle,
   ChatInputCommandInteraction,
   Colors,
@@ -10,13 +8,15 @@ import {
   SeparatorBuilder,
   SlashCommandBuilder,
   TextDisplayBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
 } from "discord.js";
 
 export default {
   data: new SlashCommandBuilder()
-    .setName("stage2-send")
-    .setDescription("Sends the stage2 embed")
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setName("simulation-room")
+    .setDescription("Creates a embed to open a simulation room")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild),
 
   async execute(interaction: ChatInputCommandInteraction): Promise<void> {
     try {
@@ -41,17 +41,24 @@ export default {
         .setAccentColor(Colors.DarkGrey)
         .addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
-            `## Stage 1 Completed\n\nBy clicking the button below, you confirm that you have read and understood all the information provided in Stage 1 and are ready to proceed to the next stage.`,
+            `## Open a Simulation Room
+
+To proceed to the next stage of the Management Training Program, please open a Simulation Room to begin your practical training.
+
+During this stage, you will participate in a Ticket Training session to demonstrate your understanding of Management procedures and support responsibilities. You will also have the opportunity to discuss and arrange a suitable date and time for your Trial Shift with a member of the Training Coordination Team.
+
+Please ensure you are prepared and ready to participate before opening your Simulation Room.
+`,
           ),
         )
         .addSeparatorComponents(new SeparatorBuilder())
         .addActionRowComponents(
           new ActionRowBuilder<ButtonBuilder>().addComponents(
             new ButtonBuilder()
-              .setLabel("Confirm")
-              .setCustomId("stage1_complete")
+              .setLabel("Open Simulation Room")
+              .setCustomId("simulation_room")
               .setStyle(ButtonStyle.Primary)
-              .setEmoji("<:check:1525789302989258972>"),
+              .setEmoji("<:training:1525789986014888036>"),
           ),
         );
 
@@ -60,7 +67,7 @@ export default {
         components: [container],
       });
 
-      await interaction.editReply("Stage 2 message sent successfully!");
+      await interaction.editReply("Simulation room message sent successfully!");
     } catch (error) {
       if (interaction.deferred || interaction.replied) {
         await interaction

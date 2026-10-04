@@ -2,7 +2,6 @@ import {
   ActionRowBuilder,
   ButtonBuilder,
   ButtonStyle,
-  ChannelType,
   Client,
   Colors,
   ContainerBuilder,
@@ -31,6 +30,9 @@ import { getRobloxUser } from "../util/RobloxValidation";
 import VerificationRequest from "../schemas/VerificationRequest";
 import Manager from "../schemas/Manager";
 import { ROLE_IDS } from "../util/RolesValidation";
+import { handleSimulationRoom } from "../systems/SimulationRoom";
+import { TrainingSystem } from "../systems/TrainingSystem";
+import { WeeklyQuotaSystem } from "../systems/WeeklyQuotaReminder";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -105,6 +107,10 @@ export class DiscordBot {
 
       console.log(`[Discord] Logged in as ${client.user.tag}.`);
 
+      const weeklyQuotaSystem = new WeeklyQuotaSystem(client);
+
+      weeklyQuotaSystem.start();
+
       await this.logger.success(
         "Bot Ready",
         `Bot is now online as **${client.user.tag}**`,
@@ -113,6 +119,14 @@ export class DiscordBot {
           guilds: client.guilds.cache.size,
         },
       );
+    });
+
+    this.client.on(Events.MessageCreate, async (message) => {
+      try {
+        await TrainingSystem.handleMessage(message);
+      } catch (error) {
+        console.error("[TrainingSystem] Error:", error);
+      }
     });
 
     this.client.on(Events.InteractionCreate, async (interaction) => {
@@ -196,6 +210,12 @@ export class DiscordBot {
       console.log(`[Discord] Received /${interaction.commandName}`);
 
       await this.commandHandler.handleInteraction(interaction);
+    });
+
+    this.client.on(Events.InteractionCreate, async (interaction) => {
+      if (interaction.isButton()) {
+        await handleSimulationRoom(interaction);
+      }
     });
 
     /**
@@ -875,50 +895,6 @@ A new verification request has been made and it's pending review. Please review 
               ],
             })
             .catch(() => {});
-        }
-      }
-
-      if (
-        interaction.isButton() &&
-        interaction.customId === "stage1_complete"
-      ) {
-        await interaction.deferReply({ flags: 64 });
-
-        // Catch and log the error so you can see it in your console
-        const member = await interaction.guild?.members
-          .fetch(interaction.user.id)
-          .catch((err) => {
-            console.error("Failed to fetch member:", err);
-            return null;
-          });
-
-        if (!member) {
-          await interaction.editReply(
-            "Error: Could not find your profile in this server.",
-          );
-          return;
-        }
-
-        const stage1_role_id = "1523408743545438229";
-        const stage2_role_id = "1523408707134816417";
-
-        try {
-          // Use try/catch instead of empty .catch() blocks
-          await member.roles.remove(
-            stage1_role_id,
-            "Stage 1 has been completed",
-          );
-          await member.roles.add(stage2_role_id, "Stage 1 has been completed");
-
-          await interaction.editReply(
-            `You have been given access to <#1532371107263287316>. Once you are ready, you can proceed with the exam.`,
-          );
-        } catch (error) {
-          // This will now tell you exactly WHY it's failing (e.g., Missing Permissions)
-          console.error("Role Update Error:", error);
-          await interaction.editReply(
-            "There was a system error updating your roles. Please contact an admin.",
-          );
         }
       }
 
