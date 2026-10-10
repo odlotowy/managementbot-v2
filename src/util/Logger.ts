@@ -1,5 +1,4 @@
 import { Client, EmbedBuilder, TextChannel } from "discord.js";
-import { config } from "../config";
 
 export enum LogLevel {
   INFO = "INFO",

@@ -1,32 +1,55 @@
-import mongoose, { Document, Model, Schema } from "mongoose";
+import mongoose, { Document, Schema } from "mongoose";
+
+export interface ISuggestionVote {
+  userId: string;
+  vote: "up" | "down";
+}
 
 export interface ISuggestion extends Document {
-  suggestId: string;
-  authorId: string;
   messageId: string;
   channelId: string;
-  status: string;
+  threadId: string;
+
+  authorId: string;
+  authorName: string;
+  authorAvatar: string | null;
+
+  title: string;
+  description: string;
+  type: string;
+
+  upvotes: number;
+  downvotes: number;
+
+  votes: ISuggestionVote[];
+
   createdAt: Date;
-  updatedAt: Date;
 }
+
+const SuggestionVoteSchema = new Schema<ISuggestionVote>(
+  {
+    userId: {
+      type: String,
+      required: true,
+    },
+
+    vote: {
+      type: String,
+      enum: ["up", "down"],
+      required: true,
+    },
+  },
+  {
+    _id: false,
+  },
+);
 
 const SuggestionSchema = new Schema<ISuggestion>(
   {
-    suggestId: {
-      type: String,
-      required: true,
-      unique: true,
-      index: true,
-    },
-
-    authorId: {
-      type: String,
-      required: true,
-    },
-
     messageId: {
       type: String,
       required: true,
+      unique: true,
     },
 
     channelId: {
@@ -34,17 +57,62 @@ const SuggestionSchema = new Schema<ISuggestion>(
       required: true,
     },
 
-    status: {
+    threadId: {
       type: String,
-      default: "Pending",
+      required: true,
+    },
+
+    authorId: {
+      type: String,
+      required: true,
+    },
+
+    authorName: {
+      type: String,
+      required: true,
+    },
+
+    authorAvatar: {
+      type: String,
+      default: null,
+    },
+
+    title: {
+      type: String,
+      required: true,
+    },
+
+    description: {
+      type: String,
+      required: true,
+    },
+
+    type: {
+      type: String,
+      required: true,
+    },
+
+    upvotes: {
+      type: Number,
+      default: 0,
+    },
+
+    downvotes: {
+      type: Number,
+      default: 0,
+    },
+
+    votes: {
+      type: [SuggestionVoteSchema],
+      default: [],
     },
   },
   {
-    timestamps: true,
+    timestamps: {
+      createdAt: true,
+      updatedAt: false,
+    },
   },
 );
 
-export const SuggestionModel: Model<ISuggestion> = mongoose.model<ISuggestion>(
-  "Suggestion",
-  SuggestionSchema,
-);
+export default mongoose.model<ISuggestion>("Suggestion", SuggestionSchema);

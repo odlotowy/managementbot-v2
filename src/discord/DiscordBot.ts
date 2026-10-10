@@ -1,6 +1,7 @@
 import {
   ActionRowBuilder,
   ButtonBuilder,
+  ButtonInteraction,
   ButtonStyle,
   Client,
   Colors,
@@ -32,7 +33,8 @@ import Manager from "../schemas/Manager";
 import { ROLE_IDS } from "../util/RolesValidation";
 import { handleSimulationRoom } from "../systems/SimulationRoom";
 import { TrainingSystem } from "../systems/TrainingSystem";
-import { WeeklyQuotaSystem } from "../systems/WeeklyQuotaReminder";
+import Suggestion from "../schemas/Suggestion";
+import SOTMRequest from "../schemas/SOTMRequest";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -106,10 +108,6 @@ export class DiscordBot {
       this.logger.setReady();
 
       console.log(`[Discord] Logged in as ${client.user.tag}.`);
-
-      const weeklyQuotaSystem = new WeeklyQuotaSystem(client);
-
-      weeklyQuotaSystem.start();
 
       await this.logger.success(
         "Bot Ready",
@@ -950,6 +948,537 @@ A new verification request has been made and it's pending review. Please review 
         await channel.send({
           components: [container],
           flags: MessageFlags.IsComponentsV2,
+        });
+      }
+
+      if (
+        interaction.isModalSubmit() &&
+        interaction.customId === "suggestion_create_modal"
+      ) {
+        const title = interaction.fields.getTextInputValue("suggestion_title");
+
+        const description = interaction.fields.getTextInputValue(
+          "suggestion_describe",
+        );
+
+        const type =
+          interaction.fields.getStringSelectValues("suggestion_type")[0];
+
+        const member = interaction.member;
+
+        let authorName = interaction.user.username;
+        let authorAvatar = interaction.user.displayAvatarURL({
+          extension: "png",
+          size: 256,
+        });
+
+        if (member && "displayName" in member) {
+          authorName = member.displayName;
+
+          const guildMember = member;
+
+          authorAvatar =
+            guildMember.displayAvatarURL({
+              extension: "png",
+              size: 256,
+            }) ?? authorAvatar;
+        }
+
+        const typeNames: Record<string, string> = {
+          server_suggestion: "Server Suggestion",
+          feedback: "Feedback",
+          bug: "Bug",
+          suggestion: "Suggestion",
+          rule_change: "Rule Change",
+          other: "Other",
+        };
+
+        const embed = new EmbedBuilder()
+          .setTitle(title)
+          .setDescription(description)
+          .setAuthor({
+            name: `${authorName} • ${typeNames[type] ?? "Other"}`,
+            iconURL: authorAvatar,
+          })
+          .addFields(
+            {
+              name: "Category",
+              value: typeNames[type] ?? "Other",
+              inline: true,
+            },
+            {
+              name: "Created By",
+              value: `${interaction.user}`,
+              inline: true,
+            },
+          )
+          .setFooter({
+            text: "Management Suggestions • Vote using the buttons below",
+          })
+          .setColor("Green")
+          .setTimestamp();
+
+        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId("suggestion_upvote:TEMP")
+            .setLabel("Upvote • 0")
+            .setEmoji("👍")
+            .setStyle(ButtonStyle.Secondary),
+          new ButtonBuilder()
+            .setCustomId("suggestion_downvote:TEMP")
+            .setLabel("Upvote • 0")
+            .setEmoji("👎")
+            .setStyle(ButtonStyle.Secondary),
+        );
+
+        const channel = interaction.guild?.channels.cache.get(
+          "1553111228023578644",
+        );
+
+        if (!channel || !channel.isTextBased() || !("send" in channel)) {
+          return;
+        }
+
+        await interaction.deferReply({ flags: 64 });
+
+        const message = await channel.send({
+          embeds: [embed],
+          components: [buttons],
+        });
+
+        const thread = await message.startThread({
+          name: `${title}`,
+          autoArchiveDuration: 1440,
+        });
+
+        const suggestion = await Suggestion.create({
+          messageId: message.id,
+          channelId: channel.id,
+          threadId: thread.id,
+          authorId: interaction.user.id,
+          authorName,
+          authorAvatar,
+          title,
+          description,
+          type,
+          upvotes: 0,
+          downvotes: 0,
+          votes: [],
+        });
+
+        const updatedButtons =
+          new ActionRowBuilder<ButtonBuilder>().addComponents(
+            new ButtonBuilder()
+              .setCustomId(`suggestion_upvote:${suggestion.id}`)
+              .setLabel("Upvote • 0")
+              .setEmoji("👍")
+              .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+              .setCustomId(`suggestion_downvote:${suggestion.id}`)
+              .setLabel("Downvote • 0")
+              .setEmoji("👎")
+              .setStyle(ButtonStyle.Secondary),
+          );
+
+        await message.edit({
+          components: [updatedButtons],
+        });
+
+        await thread.send({
+          content: `Discussion thread for **${title}**.\n\nCreated by ${interaction.user}.`,
+        });
+
+        await interaction.editReply({
+          content: `Your suggestion has been created: ${message.url}`,
+        });
+      }
+
+      if (
+        interaction.isButton() &&
+        interaction.customId.startsWith("suggestion_upvote:")
+      ) {
+        await handleVote(interaction, "up");
+        return;
+      }
+
+      if (
+        interaction.isButton() &&
+        interaction.customId.startsWith("suggestion_downvote:")
+      ) {
+        await handleVote(interaction, "down");
+        return;
+      }
+
+      async function handleVote(
+        interaction: ButtonInteraction,
+        voteType: "up" | "down",
+      ): Promise<void> {
+        const suggestionId = interaction.customId.split(":")[1];
+
+        if (!suggestionId) {
+          await interaction.reply({
+            content: "This suggestion is invalid.",
+            ephemeral: true,
+          });
+          return;
+        }
+
+        const suggestion = await Suggestion.findById(suggestionId);
+
+        if (!suggestion) {
+          await interaction.reply({
+            content: "This suggestion no longer exists.",
+            ephemeral: true,
+          });
+          return;
+        }
+
+        const existingVote = suggestion.votes.find(
+          (vote) => vote.userId === interaction.user.id,
+        );
+
+        let result: "added" | "removed" | "changed";
+
+        /*
+         * Same vote button = remove vote
+         */
+        if (existingVote?.vote === voteType) {
+          suggestion.votes = suggestion.votes.filter(
+            (vote) => vote.userId !== interaction.user.id,
+          );
+
+          if (voteType === "up") {
+            suggestion.upvotes = Math.max(0, suggestion.upvotes - 1);
+          } else {
+            suggestion.downvotes = Math.max(0, suggestion.downvotes - 1);
+          }
+
+          result = "removed";
+        } else if (existingVote) {
+          /*
+           * Different vote button = change vote
+           */
+          if (existingVote.vote === "up") {
+            suggestion.upvotes = Math.max(0, suggestion.upvotes - 1);
+            suggestion.downvotes += 1;
+          } else {
+            suggestion.downvotes = Math.max(0, suggestion.downvotes - 1);
+            suggestion.upvotes += 1;
+          }
+
+          existingVote.vote = voteType;
+
+          result = "changed";
+        } else {
+          /*
+           * No existing vote = add vote
+           */
+          suggestion.votes.push({
+            userId: interaction.user.id,
+            vote: voteType,
+          });
+
+          if (voteType === "up") {
+            suggestion.upvotes += 1;
+          } else {
+            suggestion.downvotes += 1;
+          }
+
+          result = "added";
+        }
+
+        await suggestion.save();
+
+        /*
+         * Fetch suggestion message.
+         */
+
+        const channel = await interaction.client.channels.fetch(
+          suggestion.channelId,
+        );
+
+        if (!channel || !channel.isTextBased() || !("messages" in channel)) {
+          await interaction.reply({
+            content: "I couldn't find the suggestion channel.",
+            ephemeral: true,
+          });
+          return;
+        }
+
+        const message = await channel.messages.fetch(suggestion.messageId);
+
+        /*
+         * Update embed.
+         */
+
+        const embed = EmbedBuilder.from(message.embeds[0]);
+
+        /*
+         * Update buttons.
+         */
+
+        const buttons = new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`suggestion_upvote:${suggestion.id}`)
+            .setLabel(`Upvote • ${suggestion.upvotes}`)
+            .setEmoji("👍")
+            .setStyle(ButtonStyle.Secondary),
+
+          new ButtonBuilder()
+            .setCustomId(`suggestion_downvote:${suggestion.id}`)
+            .setLabel(`Downvote • ${suggestion.downvotes}`)
+            .setEmoji("👎")
+            .setStyle(ButtonStyle.Secondary),
+        );
+
+        await message.edit({
+          embeds: [embed],
+          components: [buttons],
+        });
+
+        /*
+         * Response to voter.
+         */
+
+        let response: string;
+
+        if (result === "removed") {
+          response = "Your vote has been removed.";
+        } else if (result === "changed") {
+          response =
+            voteType === "up"
+              ? "Your vote has been changed to an upvote."
+              : "Your vote has been changed to a downvote.";
+        } else {
+          response =
+            voteType === "up"
+              ? "You upvoted this suggestion."
+              : "You downvoted this suggestion.";
+        }
+
+        await interaction.reply({
+          content: response,
+          ephemeral: true,
+        });
+      }
+
+      if (
+        interaction.isModalSubmit() &&
+        interaction.customId === "sotm_modal"
+      ) {
+        await interaction.deferReply({ flags: 64 });
+
+        const channelId = config.sotmRequestsId;
+
+        const robloxUsername = interaction.fields.getTextInputValue(
+          "roblox_username_sotm",
+        );
+
+        const discordUserId = interaction.fields
+          .getTextInputValue("discord_username_sotm")
+          .trim();
+
+        const justification =
+          interaction.fields.getTextInputValue("justification_sotm");
+
+        const proof = interaction.fields.getTextInputValue("proof_sotm");
+
+        if (!/^\d{17,20}$/.test(discordUserId)) {
+          await interaction.editReply({
+            content: "Invalid Discord User ID. Please provide a valid user ID.",
+          });
+          return;
+        }
+
+        const candidate = await this.client.users
+          .fetch(discordUserId)
+          .catch(() => null);
+
+        if (!candidate) {
+          await interaction.editReply({
+            content:
+              "I couldn't find a Discord account with that ID. Please check the ID and try again.",
+          });
+          return;
+        }
+
+        const discordUsername = candidate.username;
+        const candidateDiscordId = candidate.id;
+
+        const channel = await this.client.channels.fetch(channelId);
+
+        if (!channel?.isTextBased() || !("send" in channel)) {
+          await interaction.editReply({
+            content: "The SOTM request channel could not be found.",
+          });
+          return;
+        }
+
+        const robloxUser = await getRobloxUser(robloxUsername);
+
+        if (!robloxUser.exists) {
+          return await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(
+                  "This Roblox user does not exist. Please provide a valid Roblox username.",
+                )
+                .setColor(Colors.Red),
+            ],
+          });
+        }
+
+        if (!robloxUser.group.inGroup) {
+          return await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(
+                  "This Roblox user is not a member of our Roblox group.",
+                )
+                .setColor(Colors.Red),
+            ],
+          });
+        }
+
+        if (
+          !robloxUser.id ||
+          !robloxUser.username ||
+          robloxUser.group.rankId === null ||
+          robloxUser.group.rankName === null
+        ) {
+          return await interaction.editReply({
+            embeds: [
+              new EmbedBuilder()
+                .setDescription(
+                  "We couldn't retrieve your Roblox group information. Please make sure you are in the group and try again.",
+                )
+                .setColor(Colors.Red),
+            ],
+          });
+        }
+
+        const request = await SOTMRequest.create({
+          robloxUsername,
+          discordUsername,
+          candidateDiscordId,
+          justification,
+          proof,
+          submittedBy: interaction.user.id,
+          submittedByTag: interaction.user.tag,
+          guildId: interaction.guildId!,
+          channelId: channel.id,
+          status: "pending",
+        });
+
+        const submittedAt = Math.floor(Date.now() / 1000);
+
+        const container = new ContainerBuilder()
+          .setAccentColor(0xb58aff)
+
+          // HEADER
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "# <:highlight:1530895368324251788> STAFF OF THE MONTH",
+                "### Nomination Submission",
+                "",
+                "A new nomination has entered the review queue.",
+                "Review the candidate's contributions and supporting evidence below.",
+              ].join("\n"),
+            ),
+          )
+
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+
+          // CANDIDATE PROFILE
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "## CANDIDATE PROFILE",
+                "",
+                `**Roblox Username**\n> ${robloxUsername} \`${robloxUser.id}\``,
+                "",
+                `**Discord Username**\n> ${discordUsername} \`${candidateDiscordId}\``,
+                "",
+                `**Rank In Group**\n> ${robloxUser.group.rankName} \`${robloxUser.group.rankId}\``,
+              ].join("\n"),
+            ),
+          )
+
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+
+          // JUSTIFICATION
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              ["## NOMINATION JUSTIFICATION", "", justification].join("\n"),
+            ),
+          )
+
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+
+          // EVIDENCE
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "## SUPPORTING EVIDENCE",
+                "",
+                proof
+                  ? `> [View submitted evidence](${proof})`
+                  : "> No supporting evidence was provided.",
+              ].join("\n"),
+            ),
+          )
+
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+
+          // SUBMISSION DETAILS
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "## SUBMISSION DETAILS",
+                "",
+                `**Submitted By**\n<@${interaction.user.id}>`,
+                `**Submitted At**\n<t:${submittedAt}:F>`,
+                `**Request ID**\n\`${request.id}\``,
+                "**Status**\n`PENDING REVIEW`",
+              ].join("\n"),
+            ),
+          )
+
+          .addSeparatorComponents(new SeparatorBuilder().setDivider(true))
+
+          // FOOTER
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              [
+                "-# MANAGEMENT • STAFF RECOGNITION",
+                "-# Please review this nomination before making a decision.",
+              ].join("\n"),
+            ),
+          );
+
+        const message = await channel.send({
+          components: [container],
+          flags: MessageFlags.IsComponentsV2,
+          allowedMentions: { parse: [] },
+        });
+
+        const thread = await message.startThread({
+          name: `${robloxUsername} // SOTM Nominate`,
+          autoArchiveDuration: 1440,
+        });
+
+        await thread
+          .send("Here you can discuss this SOTM request.")
+          .catch(() => {});
+
+        request.messageId = message.id;
+        await request.save();
+
+        await interaction.editReply({
+          content:
+            "Your Staff of the Month request has been submitted successfully.",
         });
       }
     });
