@@ -16,8 +16,12 @@ if (!process.env.BOT_LOGS_ID) {
   throw new Error("[System] Missing BOT_LOGS_ID.");
 }
 
-if (!process.env.QUOTA_REMINDER_CHANNEL_ID) {
-  throw new Error("[System] Missing QUOTA_REMINDER_CHANNEL_ID.");
+if (!process.env.QUOTA_LOG_CHANNEL_ID) {
+  throw new Error("[System] Missing QUOTA_LOG_CHANNEL_ID.");
+}
+
+if (!process.env.SOTM_REQUESTS_ID) {
+  throw new Error("[System] Missing SOTM_REQUESTS_ID.");
 }
 
 export const config = {
@@ -29,5 +33,7 @@ export const config = {
 
   logsChannelId: process.env.BOT_LOGS_ID,
 
-  quotaReminderChannelId: process.env.QUOTA_REMINDER_CHANNEL_ID,
+  quotaLogChannelId: process.env.QUOTA_LOG_CHANNEL_ID,
+
+  sotmRequestsId: process.env.SOTM_REQUESTS_ID,
 };

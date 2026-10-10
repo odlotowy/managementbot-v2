@@ -13,6 +13,10 @@ export interface IManager extends Document {
 
   shifts: number;
   tickets: number;
+
+  shiftLogs: string[];
+  ticketLogs: string[];
+
   sotm: number;
 
   loa: number;
@@ -71,6 +75,15 @@ const ManagerSchema = new Schema<IManager>(
     sotm: {
       type: Number,
       default: 0,
+    },
+
+    shiftLogs: {
+      type: [String],
+      default: [],
+    },
+    ticketLogs: {
+      type: [String],
+      default: [],
     },
 
     loa: {
