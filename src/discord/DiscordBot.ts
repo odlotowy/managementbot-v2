@@ -35,6 +35,7 @@ import { handleSimulationRoom } from "../systems/SimulationRoom";
 import { TrainingSystem } from "../systems/TrainingSystem";
 import Suggestion from "../schemas/Suggestion";
 import SOTMRequest from "../schemas/SOTMRequest";
+import { SuspensionSystem } from "../systems/SuspensionSystem";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -106,6 +107,10 @@ export class DiscordBot {
   private registerEvents(): void {
     this.client.once(Events.ClientReady, async (client) => {
       this.logger.setReady();
+
+      const suspensionSystem = new SuspensionSystem(client);
+
+      suspensionSystem.start();
 
       console.log(`[Discord] Logged in as ${client.user.tag}.`);
 

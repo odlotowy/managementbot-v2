@@ -65,21 +65,13 @@ async function main(): Promise<void> {
   }
 }
 
-process.on("SIGINT", async () => {
-  console.log("[System] Shutting down...");
-
+async function shutdown() {
   await disconnectDatabase();
-
   process.exit(0);
-});
+}
 
-process.on("SIGTERM", async () => {
-  console.log("[System] Shutting down...");
-
-  await disconnectDatabase();
-
-  process.exit(0);
-});
+process.once("SIGINT", () => void shutdown());
+process.once("SIGTERM", () => void shutdown());
 
 main().catch(async (error) => {
   console.log("[System] Fatal error:", error);
