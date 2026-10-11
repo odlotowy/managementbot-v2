@@ -102,9 +102,11 @@ export class SuspensionSystem {
             .setAccentColor(0x2ecc71)
             .addTextDisplayComponents(
               new TextDisplayBuilder().setContent(
-                "# Suspension Ended\n" +
-                  "Your suspension has expired. Your previous " +
-                  "roles have been restored where possible.",
+                "# Management Department Suspension Completion Notice\n" +
+                  "This message is to inform you that your suspension period within the Management Department has officially ended.\n" +
+                  "After completing the assigned suspension period, you are now permitted to resume your Management Department responsibilities and continue your duties as a member of the team.\n" +
+                  "Please ensure that you continue following all department expectations, procedures, and professional standards moving forward. Any repeated issues may result in further disciplinary action depending on the severity of the situation.\n" +
+                  "We appreciate your cooperation during this process and look forward to seeing your continued contributions within the Management Department.",
               ),
             )
             .addSeparatorComponents(new SeparatorBuilder())
