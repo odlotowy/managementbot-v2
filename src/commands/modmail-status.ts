@@ -10,7 +10,7 @@ import {
   TextDisplayBuilder,
 } from "discord.js";
 
-import ModMailSettings from "../schemas/ModMailSettings";
+import ModMailSettings from "../schemas/ModMailSettings.js";
 import { MODMAIL_CONFIG } from "../config/modmail";
 
 const config = MODMAIL_CONFIG;
