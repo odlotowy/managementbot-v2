@@ -24,6 +24,18 @@ if (!process.env.SOTM_REQUESTS_ID) {
   throw new Error("[System] Missing SOTM_REQUESTS_ID.");
 }
 
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error("[System] Missing OPENAI_API_KEY.");
+}
+
+if (!process.env.OPENAI_TRANSCRIPTION_MODEL) {
+  throw new Error("[System] Missing OPENAI_TRANSCRIPTION_MODEL.");
+}
+
+if (!process.env.OPENAI_SUMMARY_MODEL) {
+  throw new Error("[System] Missing OPENAI_SUMMARY_MODEL.");
+}
+
 export const config = {
   discordToken: process.env.DISCORD_TOKEN,
 
@@ -36,4 +48,10 @@ export const config = {
   quotaLogChannelId: process.env.QUOTA_LOG_CHANNEL_ID,
 
   sotmRequestsId: process.env.SOTM_REQUESTS_ID,
+
+  OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+
+  OPENAI_TRANSCRIPTION_MODEL: process.env.OPENAI_TRANSCRIPTION_MODEL,
+
+  OPENAI_SUMMARY_MODEL: process.env.OPENAI_SUMMARY_MODEL,
 };
