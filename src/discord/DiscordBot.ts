@@ -36,6 +36,7 @@ import { TrainingSystem } from "../systems/TrainingSystem";
 import Suggestion from "../schemas/Suggestion";
 import SOTMRequest from "../schemas/SOTMRequest";
 import { SuspensionSystem } from "../systems/SuspensionSystem";
+import Exam from "../schemas/Exam";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -902,58 +903,212 @@ A new verification request has been made and it's pending review. Please review 
       }
 
       if (interaction.isButton() && interaction.customId === "exam_start") {
-        await interaction.reply({
-          content: "https://forms.gle/qRbe6X8JEYykQ2cu9",
-          flags: 64,
-        });
+        const modal = new ModalBuilder()
+          .setCustomId("exam_start_modal")
+          .setTitle("Management Examination");
 
-        const container = new ContainerBuilder()
-          .setAccentColor(0x2ecc71)
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              "## <:freshway:1525789609601007646> Examination Started\n" +
-                "A user has started their management examination. The examination is now in progress.",
-            ),
+        const emailInput = new TextInputBuilder()
+          .setCustomId("exam_email")
+          .setStyle(TextInputStyle.Short)
+          .setPlaceholder("example@gmail.com")
+          .setRequired(true)
+          .setMaxLength(254);
+
+        const emailLabel = new LabelBuilder()
+          .setLabel("Your Gmail Address")
+          .setDescription(
+            "Enter the email address you will use to complete the Google Form.",
           )
-          .addSeparatorComponents(
-            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
-          )
-          .addSectionComponents(
-            new SectionBuilder()
-              .addTextDisplayComponents(
-                new TextDisplayBuilder().setContent(
-                  `**User**\n${interaction.user}\n\`${interaction.user.id}\``,
-                ),
-                new TextDisplayBuilder().setContent(
-                  `**Started At**\n<t:${Math.floor(Date.now() / 1000)}:F>\n<t:${Math.floor(Date.now() / 1000)}:R>`,
-                ),
-              )
-              .setThumbnailAccessory(
-                new ThumbnailBuilder({
-                  media: {
-                    url: interaction.user.displayAvatarURL({ size: 256 }),
-                  },
-                }),
+          .setTextInputComponent(emailInput);
+
+        modal.addLabelComponents(emailLabel);
+
+        await interaction.showModal(modal);
+        return;
+      }
+
+      if (
+        interaction.isModalSubmit() &&
+        interaction.customId === "exam_start_modal"
+      ) {
+        await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+        try {
+          const email = interaction.fields
+            .getTextInputValue("exam_email")
+            .trim()
+            .toLowerCase();
+
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            await interaction.editReply(
+              "Please provide a valid email address.",
+            );
+            return;
+          }
+
+          if (!interaction.guildId || !interaction.channelId) {
+            await interaction.editReply(
+              "This examination can only be started inside a server channel.",
+            );
+            return;
+          }
+
+          const logChannelId = "1532374206648680488";
+
+          const logChannel = await this.client.channels.fetch(logChannelId);
+
+          if (!logChannel?.isSendable()) {
+            await interaction.editReply(
+              "The examination log channel could not be found. Please contact Management Leadership.",
+            );
+            return;
+          }
+
+          const existingExam = await Exam.findOne({
+            discordUserId: interaction.user.id,
+            status: "pending",
+          });
+
+          if (existingExam) {
+            await interaction.editReply(
+              "You already have an examination in progress. Please complete it before starting another one.",
+            );
+            return;
+          }
+
+          const existingEmail = await Exam.findOne({
+            email,
+            status: "pending",
+          });
+
+          if (existingEmail) {
+            await interaction.editReply(
+              "An examination is already in progress using this email address. Please contact Management Leadership if you believe this is an error.",
+            );
+            return;
+          }
+
+          const exam = await Exam.create({
+            discordUserId: interaction.user.id,
+            discordUsername: interaction.user.tag,
+            email,
+            guildId: interaction.guildId,
+            startChannelId: interaction.channelId,
+            logChannelId,
+            startedAt: new Date(),
+            status: "pending",
+          });
+
+          const formUrl = "https://forms.gle/qRbe6X8JEYykQ2cu9";
+
+          const dmContainer = new ContainerBuilder()
+            .setAccentColor(Colors.Green)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                [
+                  "## <:freshway:1525789609601007646> Management Examination",
+                  "Your examination has been started.",
+                  "",
+                  `**Registered Gmail**\n\`${email}\``,
+                  "",
+                  `**Examination Link**\n[Click here to begin your examination](${formUrl})`,
+                  "",
+                  "Complete the form using the Gmail address provided above.",
+                ].join("\n"),
               ),
-          )
-          .addSeparatorComponents(
-            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
-          )
-          .addTextDisplayComponents(
-            new TextDisplayBuilder().setContent(
-              "-# FreshWay Management • Examination System",
-            ),
+            )
+            .addSeparatorComponents(new SeparatorBuilder())
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                "-# FreshWay Management • Examination System",
+              ),
+            );
+
+          // Try to deliver the examination link privately.
+          let dmSent = true;
+
+          try {
+            await interaction.user.send({
+              components: [dmContainer],
+              flags: MessageFlags.IsComponentsV2,
+            });
+          } catch (error) {
+            dmSent = false;
+            console.warn(
+              `[Exam] Could not DM examination link to ${interaction.user.id}:`,
+              error,
+            );
+          }
+
+          const startedAt = Math.floor(exam.startedAt.getTime() / 1000);
+
+          const startLog = new ContainerBuilder()
+            .setAccentColor(Colors.Green)
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                [
+                  "## <:freshway:1525789609601007646> Examination Started",
+                  "A user has started their management examination. The examination is now in progress.",
+                ].join("\n"),
+              ),
+            )
+            .addSeparatorComponents(
+              new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+            )
+            .addSectionComponents(
+              new SectionBuilder()
+                .addTextDisplayComponents(
+                  new TextDisplayBuilder().setContent(
+                    `**User**\n${interaction.user}\n\`${interaction.user.id}\``,
+                  ),
+                  new TextDisplayBuilder().setContent(
+                    `**Gmail Address**\n\`${email}\``,
+                  ),
+                  new TextDisplayBuilder().setContent(
+                    `**Started At**\n<t:${startedAt}:F>\n<t:${startedAt}:R>`,
+                  ),
+                )
+                .setThumbnailAccessory(
+                  new ThumbnailBuilder({
+                    media: {
+                      url: interaction.user.displayAvatarURL({
+                        size: 256,
+                      }),
+                    },
+                  }),
+                ),
+            )
+            .addSeparatorComponents(
+              new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+            )
+            .addTextDisplayComponents(
+              new TextDisplayBuilder().setContent(
+                "-# FreshWay Management • Examination System",
+              ),
+            );
+
+          await logChannel.send({
+            components: [startLog],
+            flags: MessageFlags.IsComponentsV2,
+            allowedMentions: { parse: [] },
+          });
+
+          await interaction.editReply(
+            dmSent
+              ? "Your examination has started. I have sent the examination link to your DMs. Please check your inbox."
+              : `I couldn't DM you. Enable direct messages from server members and use this examination link: ${formUrl}`,
           );
+        } catch (error) {
+          console.error("[Exam] Failed to start examination:", error);
 
-        const channel = interaction.guild?.channels.cache.get(
-          "1532374206648680488",
-        );
-        if (!channel || !channel.isSendable()) return;
+          await interaction
+            .editReply(
+              "An error occurred while starting your examination. Please contact Management Leadership.",
+            )
+            .catch(() => {});
+        }
 
-        await channel.send({
-          components: [container],
-          flags: MessageFlags.IsComponentsV2,
-        });
+        return;
       }
 
       if (

@@ -1,6 +1,6 @@
 import { connectDatabase, disconnectDatabase } from "./database";
 import dns from "dns";
-import "./health";
+import { startHealthServer } from "./health";
 
 import { DiscordBot } from "./discord/DiscordBot";
 import { config } from "./config";
@@ -54,6 +54,8 @@ async function main(): Promise<void> {
     await connectDatabase(discord.logger, config.mongodbUri);
 
     registerModMail(discord.client);
+
+    startHealthServer(discord.client);
 
     await discord.start();
   } catch (error) {
