@@ -24,19 +24,19 @@ import {
   ThumbnailBuilder,
 } from "discord.js";
 
-import { config } from "../config";
-import { CommandHandler } from "./CommandHandler";
-import { Logger } from "../util/Logger";
-import { getRobloxUser } from "../util/RobloxValidation";
-import VerificationRequest from "../schemas/VerificationRequest";
-import Manager from "../schemas/Manager";
-import { ROLE_IDS } from "../util/RolesValidation";
-import { handleSimulationRoom } from "../systems/SimulationRoom";
-import { TrainingSystem } from "../systems/TrainingSystem";
-import Suggestion from "../schemas/Suggestion";
-import SOTMRequest from "../schemas/SOTMRequest";
-import { SuspensionSystem } from "../systems/SuspensionSystem";
-import Exam from "../schemas/Exam";
+import { config } from "../config.js";
+import { CommandHandler } from "./CommandHandler.js";
+import { Logger } from "../util/Logger.js";
+import { getRobloxUser } from "../util/RobloxValidation.js";
+import VerificationRequest from "../schemas/VerificationRequest.js";
+import Manager from "../schemas/Manager.js";
+import { ROLE_IDS } from "../util/RolesValidation.js";
+import { handleSimulationRoom } from "../systems/SimulationRoom.js";
+import { TrainingSystem } from "../systems/TrainingSystem.js";
+import Suggestion from "../schemas/Suggestion.js";
+import SOTMRequest from "../schemas/SOTMRequest.js";
+import { SuspensionSystem } from "../systems/SuspensionSystem.js";
+import Exam from "../schemas/Exam.js";
 
 export class DiscordBot {
   public readonly client: Client;

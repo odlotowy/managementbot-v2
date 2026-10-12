@@ -10,7 +10,7 @@ import {
 } from "discord.js";
 import "dotenv/config";
 
-import Exam from "./schemas/Exam";
+import Exam from "./schemas/Exam.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;

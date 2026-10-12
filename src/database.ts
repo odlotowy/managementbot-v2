@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 
-import { Logger } from "./util/Logger";
+import { Logger } from "./util/Logger.js";
 
 export async function connectDatabase(
   logger: Logger,

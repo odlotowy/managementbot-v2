@@ -1,4 +1,7 @@
-import { HydratedDocument, model, models, Schema } from "mongoose";
+import mongoose from "mongoose";
+import type { HydratedDocument } from "mongoose";
+
+const { model, models, Schema } = mongoose;
 
 export interface ITraining {
   guildId: string;

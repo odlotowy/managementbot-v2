@@ -4,7 +4,7 @@ import {
   SlashCommandBuilder,
   TextChannel,
 } from "discord.js";
-import { TrainingSystem } from "../systems/TrainingSystem";
+import { TrainingSystem } from "../systems/TrainingSystem.js";
 
 export default {
   data: new SlashCommandBuilder()

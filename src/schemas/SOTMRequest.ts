@@ -1,10 +1,8 @@
-import {
-  Schema,
-  model,
-  models,
-  type InferSchemaType,
-  type Model,
-} from "mongoose";
+import mongoose from "mongoose";
+import type { Model } from "mongoose";
+import type { InferSchemaType } from "mongoose";
+
+const { model, models, Schema } = mongoose;
 
 const SOTMRequestSchema = new Schema(
   {

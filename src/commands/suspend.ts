@@ -7,8 +7,8 @@ import {
   SlashCommandBuilder,
   TextDisplayBuilder,
 } from "discord.js";
-import { SuspensionModel } from "../schemas/Suspension";
-import { ParseDuration, FormatDuration } from "../util/ParseDuration";
+import { SuspensionModel } from "../schemas/Suspension.js";
+import { ParseDuration, FormatDuration } from "../util/ParseDuration.js";
 
 export default {
   data: new SlashCommandBuilder()

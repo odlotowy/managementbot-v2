@@ -1,10 +1,10 @@
-import { connectDatabase, disconnectDatabase } from "./database";
+import { connectDatabase, disconnectDatabase } from "./database.js";
 import dns from "dns";
-import { startHealthServer } from "./health";
+import { startHealthServer } from "./health.js";
 
-import { DiscordBot } from "./discord/DiscordBot";
-import { config } from "./config";
-import { registerModMail } from "./systems/ModMailSystem";
+import { DiscordBot } from "./discord/DiscordBot.js";
+import { config } from "./config.js";
+import { registerModMail } from "./systems/ModMailSystem.js";
 
 async function main(): Promise<void> {
   console.log("");

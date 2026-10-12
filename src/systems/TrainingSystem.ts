@@ -1,5 +1,5 @@
 import { Message, TextChannel } from "discord.js";
-import Training from "../schemas/Training";
+import Training from "../schemas/Training.js";
 
 const READY_MESSAGE = "I'm ready.";
 

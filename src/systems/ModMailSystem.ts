@@ -1,6 +1,6 @@
-import ModMail, { ModMailDocument } from "../schemas/Modmail";
-import ModMailSettings from "../schemas/ModMailSettings";
-import { MODMAIL_CONFIG, ModMailCategory } from "../config/modmail";
+import ModMail, { ModMailDocument } from "../schemas/Modmail.js";
+import ModMailSettings from "../schemas/ModMailSettings.js";
+import { MODMAIL_CONFIG, ModMailCategory } from "../config/modmail.js";
 import {
   ActionRowBuilder,
   ChannelType,

@@ -5,7 +5,7 @@ import {
   SeparatorBuilder,
   TextDisplayBuilder,
 } from "discord.js";
-import { SuspensionModel } from "../schemas/Suspension";
+import { SuspensionModel } from "../schemas/Suspension.js";
 
 export class SuspensionSystem {
   private interval: ReturnType<typeof setInterval> | null = null;

@@ -1,5 +1,5 @@
 import { REST, Routes } from "discord.js";
-import { config } from "../config";
+import { config } from "../config.js";
 
 async function clearCommands() {
   if (!config.discordToken) {
