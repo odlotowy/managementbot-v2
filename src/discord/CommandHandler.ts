@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { config } from "../config.js";
 import { Logger } from "../util/Logger.js";
@@ -10,7 +10,6 @@ import {
   Client,
   Collection,
   EmbedBuilder,
-  Interaction,
   REST,
   Routes,
   SlashCommandBuilder,
@@ -34,38 +33,34 @@ export class CommandHandler {
   }
 
   public async loadCommands(): Promise<void> {
-    const commandsPath = path.join(process.cwd(), "src", "commands");
+    const currentDir = path.dirname(fileURLToPath(import.meta.url));
+
+    const commandsPath = path.join(currentDir, "..", "commands");
 
     if (!fs.existsSync(commandsPath)) {
-      fs.mkdirSync(commandsPath, {
-        recursive: true,
-      });
-
-      console.log("[Commands] Created commands directory.");
-
-      return;
+      throw new Error(
+        `[Commands] Commands directory not found: ${commandsPath}`,
+      );
     }
 
     const files = fs
       .readdirSync(commandsPath)
-      .filter((file) => file.endsWith(".ts") || file.endsWith(".js"))
+      .filter((file) => /\.(ts|js)$/.test(file))
       .filter((file) => !file.endsWith(".d.ts"));
 
     try {
       for (const file of files) {
         const filePath = path.join(commandsPath, file);
-
         const fileUrl = pathToFileURL(filePath).href;
 
         const imported = await import(`${fileUrl}?update=${Date.now()}`);
 
         const command = imported.default ?? imported.command;
 
-        if (!command || !command.data || !command.execute) {
+        if (!command?.data || !command?.execute) {
           console.warn(
             `[Commands] Skipping ${file}: invalid command structure.`,
           );
-
           continue;
         }
 
@@ -73,7 +68,6 @@ export class CommandHandler {
 
         if (this.commands.has(commandName)) {
           console.warn(`[Commands] Duplicate command: ${commandName}`);
-
           continue;
         }
 
@@ -91,7 +85,6 @@ export class CommandHandler {
       );
     } catch (error) {
       await this.logger.error("Command Loading Failed", error);
-
       throw error;
     }
 

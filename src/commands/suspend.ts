@@ -10,6 +10,120 @@ import {
 import { SuspensionModel } from "../schemas/Suspension.js";
 import { ParseDuration, FormatDuration } from "../util/ParseDuration.js";
 
+const logchannelid = "1561746687020638218";
+
+async function logSuspension(
+  interaction: ChatInputCommandInteraction,
+  details: {
+    action: string;
+    targetId: string;
+    moderatorId: string;
+    reason: string;
+    duration?: string;
+    expiresAt?: Date;
+    rolesRemoved?: number;
+    dmSent?: boolean;
+    error?: unknown;
+  },
+): Promise<void> {
+  const channel = await interaction.client.channels
+    .fetch(logchannelid)
+    .catch(() => null);
+
+  if (!channel?.isTextBased() || !("send" in channel)) {
+    console.error(
+      `[Suspension Logs] Logging channel unavailable: ${details.action}`,
+    );
+    return;
+  }
+
+  const isSuccess = details.action === "Suspension Applied";
+
+  const container = new ContainerBuilder()
+    .setAccentColor(isSuccess ? 0x2ecc71 : 0xe74c3c)
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `# Suspension: ${details.action}\n` +
+          `**Member:** <@${details.targetId}>\n` +
+          `**Member ID:** \`${details.targetId}\`\n` +
+          `**Moderator:** <@${details.moderatorId}>\n` +
+          `**Moderator ID:** \`${details.moderatorId}\``,
+      ),
+    )
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `**Reason:** ${details.reason.slice(0, 1500)}`,
+      ),
+    );
+
+  if (
+    details.duration ||
+    details.expiresAt ||
+    details.rolesRemoved !== undefined ||
+    details.dmSent !== undefined
+  ) {
+    container.addSeparatorComponents(new SeparatorBuilder());
+
+    const fields: string[] = [];
+
+    if (details.duration) {
+      fields.push(`**Duration:** ${details.duration}`);
+    }
+
+    if (details.expiresAt) {
+      fields.push(
+        `**Expires:** <t:${Math.floor(details.expiresAt.getTime() / 1000)}:F>`,
+        `**Relative Expiration:** <t:${Math.floor(details.expiresAt.getTime() / 1000)}:R>`,
+      );
+    }
+
+    if (details.rolesRemoved !== undefined) {
+      fields.push(`**Roles Removed:** ${details.rolesRemoved}`);
+    }
+
+    if (details.dmSent !== undefined) {
+      fields.push(`**DM Delivered:** ${details.dmSent ? "Yes" : "No"}`);
+    }
+
+    container.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(fields.join("\n")),
+    );
+  }
+
+  if (details.error !== undefined) {
+    console.error(`[Suspension Logs] ${details.action}:`, details.error);
+
+    container
+      .addSeparatorComponents(new SeparatorBuilder())
+      .addTextDisplayComponents(
+        new TextDisplayBuilder().setContent(
+          `**Error:**\n\`\`\`\n${String(details.error).slice(0, 900)}\n\`\`\``,
+        ),
+      );
+  }
+
+  container
+    .addSeparatorComponents(new SeparatorBuilder())
+    .addTextDisplayComponents(
+      new TextDisplayBuilder().setContent(
+        `-# Suspension logging • ${new Date().toISOString()}`,
+      ),
+    );
+
+  try {
+    await channel.send({
+      components: [container],
+      flags: MessageFlags.IsComponentsV2,
+      allowedMentions: {
+        parse: [],
+      },
+    });
+  } catch (error) {
+    console.error("[Suspension Logs] Failed to send log:", error);
+  }
+}
+
 export default {
   data: new SlashCommandBuilder()
     .setName("suspend")
@@ -260,6 +374,18 @@ export default {
     } catch (error) {
       dmSent = false;
     }
+
+    await logSuspension(interaction, {
+      action: "Error",
+      targetId: member.id,
+      moderatorId: interaction.user.id,
+      reason,
+      duration: FormatDuration(durationMs),
+      expiresAt,
+      rolesRemoved: rolesToRemove.size,
+      dmSent,
+      error: "this is a test error message",
+    });
 
     await interaction.editReply(
       `Successfully suspended ${member.user.tag} for ${FormatDuration(durationMs)}.` +

@@ -11,6 +11,7 @@ import {
   MessageFlags,
   PermissionFlagsBits,
   SeparatorBuilder,
+  SeparatorSpacingSize,
   StringSelectMenuBuilder,
   TextDisplayBuilder,
 } from "discord.js";
@@ -22,7 +23,9 @@ function createContainer(title: string, description: string) {
     .addTextDisplayComponents(
       new TextDisplayBuilder().setContent(`## ${title}\n${description}`),
     )
-    .addSeparatorComponents(new SeparatorBuilder());
+    .addSeparatorComponents(
+      new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+    );
 }
 
 async function sendDM(
@@ -45,7 +48,7 @@ async function sendQuestions(
   return sendDM(
     user,
     "Support Questionnaire",
-    `**Question ${current + 1} of ${total}**\n\n${question}\n\n-# Please send your answer in this DM to continue.`,
+    `### Question ${current + 1} of ${total}\n\n${question}\n\n-# Reply to this message with your answer to continue.`,
   );
 }
 
@@ -69,7 +72,12 @@ export function registerModMail(client: Client) {
         await sendDM(
           message.author,
           "Support Unavailable",
-          "Our ModMail system is currently disabled. Please try again later.",
+          [
+            "## Support Is Currently Unavailable",
+            "Our ModMail system is temporarily disabled, so we cannot process your support request right now.",
+            "",
+            "-# Please try again later. We apologize for the inconvenience.",
+          ].join("\n"),
         );
         return;
       }
@@ -122,7 +130,12 @@ export function registerModMail(client: Client) {
           await sendDM(
             message.author,
             "Support Error",
-            "The support server is currently unavailable. Please try again later.",
+            [
+              "## Unable to Connect to Support",
+              "We couldn't connect to the support server, so your request could not be processed.",
+              "",
+              "-# Please try again later. If the issue persists, contact a member of Management.",
+            ].join("\n"),
           );
           return;
         }
@@ -177,17 +190,29 @@ export function registerModMail(client: Client) {
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
               `## ${categoryInfo.emoji} New ModMail Conversation\n` +
-                `**User:** <@${userId}>\n` +
-                `**User ID:** \`${userId}\`\n` +
-                `**Category:** ${category}\n` +
-                `**Conversation ID:** \`${session.id}\`\n` +
-                `**Created:** <t:${Math.floor(Date.now() / 1000)}:F>`,
+                `-# A new support conversation has been opened.\n\n` +
+                `**User**\n<@${userId}>\n\n` +
+                `**Category**\n${category}\n\n` +
+                `**Conversation ID**\n\`${session.id}\`\n\n` +
+                `**Created**\n<t:${Math.floor(Date.now() / 1000)}:F>`,
             ),
           )
-          .addSeparatorComponents(new SeparatorBuilder())
+          .addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+          )
           .addTextDisplayComponents(
             new TextDisplayBuilder().setContent(
-              `### Questionnaire\n${details}`,
+              `### Questionnaire Responses\n` +
+                `-# Submitted details from the support request.\n\n` +
+                `${details}`,
+            ),
+          )
+          .addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `-# ModMail • User ID: ${userId}`,
             ),
           );
 
@@ -206,7 +231,18 @@ export function registerModMail(client: Client) {
         await sendDM(
           message.author,
           "Conversation Created",
-          `Your support request has been submitted successfully.\n\n**Category:** ${category}\n**Conversation ID:** \`${session.id}\`\n\nA member of our support team will respond to you here.`,
+          [
+            "## Support Request Submitted",
+            "Your support request has been successfully submitted to our Management Support team.",
+            "",
+            "**Category**",
+            category,
+            "",
+            "**Conversation ID**",
+            `\`${session.id}\``,
+            "",
+            "-# A member of our support team will contact you here via DM. Please keep this conversation open and check your messages for updates.",
+          ].join("\n"),
         );
 
         return;
@@ -226,8 +262,14 @@ export function registerModMail(client: Client) {
         );
 
       const container = createContainer(
-        "Welcome to Management Department Support Section",
-        "Thank you for contacting our Management Leadership team.\n\nPlease select a category below to get started. You will be asked a few questions before your conversation is created.",
+        "Management Department Support",
+        [
+          "Thank you for contacting the Management Leadership team.",
+          "",
+          "Select a category below to get started. You will then be guided through a short questionnaire to help us understand your request before your conversation is created.",
+          "",
+          "-# Please select the category that best matches your inquiry.",
+        ].join("\n"),
       ).addActionRowComponents(
         new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
       );
@@ -286,7 +328,13 @@ export function registerModMail(client: Client) {
         components: [
           createContainer(
             "Category Selected",
-            `You selected **${categoryValue}**.\n\nLet's get started with a few questions. Please answer each question to proceed.`,
+            [
+              `Your selected category is **${categoryValue}**.`,
+              "",
+              "We'll now guide you through a short questionnaire to gather the information needed for your support request.",
+              "",
+              "-# Please answer each question carefully. Your responses will be used to create your ModMail conversation.",
+            ].join("\n"),
           ),
         ],
         flags: MessageFlags.IsComponentsV2,
@@ -348,9 +396,15 @@ export function registerModMail(client: Client) {
 
         await sendDM(
           user,
-          "Conversation Claimed",
-          `Your support conversation has been claimed by a member of our support team.\n\n` +
-            `You can continue sending messages here and our team will receive them.`,
+          "Support Team Assigned",
+          [
+            "## Your Conversation Has Been Claimed",
+            "A member of our Management Support team has taken responsibility for your support request.",
+            "",
+            "You can continue sending messages in this DM, and your messages will be forwarded to the support team.",
+            "",
+            "-# Please keep this conversation open and provide any additional information relevant to your request.",
+          ].join("\n"),
         ).catch(() => null);
 
         if (!message.channel.isSendable()) return;
@@ -359,7 +413,13 @@ export function registerModMail(client: Client) {
           components: [
             createContainer(
               "Conversation Claimed",
-              `This conversation has been claimed by <@${message.author.id}>.`,
+              [
+                `This ModMail conversation has been claimed by <@${message.author.id}>.`,
+                "",
+                "The assigned staff member is now responsible for handling this request and assisting the user.",
+                "",
+                `-# Claimed by: ${message.author.tag}`,
+              ].join("\n"),
             ),
           ],
           flags: MessageFlags.IsComponentsV2,
@@ -436,22 +496,35 @@ export function registerModMail(client: Client) {
           .join("\n\n");
 
         // Send log summary
-        const logContainer = new ContainerBuilder().addTextDisplayComponents(
-          new TextDisplayBuilder().setContent(
-            `## ModMail Conversation Closed\n` +
-              `**User:** <@${session.userId}>\n` +
-              `**User ID:** \`${session.userId}\`\n` +
-              `**Category:** ${session.category}\n` +
-              `**Claimed by:** ${
-                session.claimedBy ? `<@${session.claimedBy}>` : "No-One"
-              }\n` +
-              `**Closed by:** <@${message.author.id}>\n` +
-              `**Conversation ID:** \`${session.id}\`\n` +
-              `**Channel:** #${ticketChannel.name}\n` +
-              `**Created:** <t:${Math.floor(session.createdAt.getTime() / 1000)}:F>\n` +
-              `**Closed:** <t:${Math.floor(Date.now() / 1000)}:F>`,
-          ),
-        );
+        const logContainer = new ContainerBuilder()
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `## ModMail Conversation Closed\n` +
+                `-# This support conversation has been successfully closed.\n\n` +
+                `### Conversation Details\n` +
+                `**User**\n<@${session.userId}>\n\n` +
+                `**Category**\n${session.category}\n\n` +
+                `**Conversation ID**\n\`${session.id}\`\n\n` +
+                `**Channel**\n<#${ticketChannel.id}>\n\n` +
+                `### Staff Information\n` +
+                `**Claimed By**\n${
+                  session.claimedBy ? `<@${session.claimedBy}>` : "No one"
+                }\n\n` +
+                `**Closed By**\n<@${message.author.id}>\n\n` +
+                `### Timeline\n` +
+                `**Created**\n<t:${Math.floor(session.createdAt.getTime() / 1000)}:F>\n\n` +
+                `**Closed**\n<t:${Math.floor(Date.now() / 1000)}:F>\n\n` +
+                `-# User ID: ${session.userId}`,
+            ),
+          )
+          .addSeparatorComponents(
+            new SeparatorBuilder().setSpacing(SeparatorSpacingSize.Small),
+          )
+          .addTextDisplayComponents(
+            new TextDisplayBuilder().setContent(
+              `-# ModMail Audit Log • Conversation ${session.id}`,
+            ),
+          );
 
         await logChannel.send({
           components: [logContainer],
@@ -485,7 +558,14 @@ export function registerModMail(client: Client) {
         await sendDM(
           user,
           "Conversation Closed",
-          "Your support conversation has been closed by our support team. If you need further assistance, you can contact us again.",
+          [
+            "## Your Support Conversation Has Been Closed",
+            "Our Management Support team has closed your support conversation.",
+            "",
+            "If you require further assistance, you are welcome to open a new support conversation at any time.",
+            "",
+            "-# Thank you for contacting Management Support.",
+          ].join("\n"),
         ).catch(() => null);
 
         // Update database
