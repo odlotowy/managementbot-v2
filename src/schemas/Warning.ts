@@ -1,4 +1,4 @@
-import { Schema, model, models } from "mongoose";
+import mongoose, { Schema } from "mongoose";
 
 const WarningSchema = new Schema(
   {
@@ -14,6 +14,11 @@ const WarningSchema = new Schema(
     },
     moderatorId: {
       type: String,
+      required: true,
+    },
+    warningType: {
+      type: String,
+      enum: ["warning", "final_warning"],
       required: true,
     },
     reason: {
@@ -45,4 +50,5 @@ const WarningSchema = new Schema(
   },
 );
 
-export const WarningModel = models.Warning ?? model("Warning", WarningSchema);
+export const WarningModel =
+  mongoose.models.Warning ?? mongoose.model("Warning", WarningSchema);
