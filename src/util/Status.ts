@@ -3,51 +3,71 @@ import { ActivityType, type Client, type PresenceData } from "discord.js";
 const statuses: PresenceData[] = [
   {
     activities: [
-      { name: "over Management Department", type: ActivityType.Watching },
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Watching over the department",
+      },
     ],
     status: "online",
   },
   {
     activities: [
-      { name: "management operations", type: ActivityType.Watching },
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Managing management operations",
+      },
     ],
     status: "online",
   },
   {
     activities: [
-      { name: "staff activity and performance", type: ActivityType.Watching },
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Monitoring staff activity and performance",
+      },
     ],
     status: "online",
   },
   {
-    activities: [{ name: "management requests", type: ActivityType.Watching }],
-    status: "online",
-  },
-  {
-    activities: [{ name: "staff development", type: ActivityType.Watching }],
-    status: "online",
-  },
-  {
-    activities: [{ name: "the leadership team", type: ActivityType.Watching }],
-    status: "online",
-  },
-  {
-    activities: [{ name: "staff support", type: ActivityType.Listening }],
-    status: "online",
-  },
-  {
     activities: [
-      { name: "incoming support requests", type: ActivityType.Watching },
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Handling management requests",
+      },
     ],
     status: "online",
   },
   {
-    activities: [{ name: "management database", type: ActivityType.Watching }],
+    activities: [
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Supporting the leadership team",
+      },
+    ],
     status: "online",
   },
   {
     activities: [
-      { name: "all systems operational", type: ActivityType.Playing },
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "Monitoring incoming support requests",
+      },
+    ],
+    status: "online",
+  },
+  {
+    activities: [
+      {
+        name: "custom",
+        type: ActivityType.Custom,
+        state: "All systems operational",
+      },
     ],
     status: "online",
   },
@@ -60,13 +80,7 @@ export class StatusRotator {
   constructor(private readonly client: Client) {}
 
   start(): void {
-    if (this.interval) return;
-
-    if (!this.client.isReady()) {
-      throw new Error(
-        "The bot must be ready before starting the status rotator.",
-      );
-    }
+    if (this.interval || !this.client.isReady()) return;
 
     this.updateStatus();
 
@@ -76,10 +90,10 @@ export class StatusRotator {
   }
 
   private updateStatus(): void {
-    const status = statuses[this.currentIndex];
+    const user = this.client.user;
+    if (!user) return;
 
-    this.client.user?.setPresence(status);
-
+    user.setPresence(statuses[this.currentIndex]);
     this.currentIndex = (this.currentIndex + 1) % statuses.length;
   }
 
