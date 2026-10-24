@@ -37,6 +37,7 @@ import Suggestion from "../schemas/Suggestion.js";
 import SOTMRequest from "../schemas/SOTMRequest.js";
 import { SuspensionSystem } from "../systems/SuspensionSystem.js";
 import Exam from "../schemas/Exam.js";
+import { StatusRotator } from "../util/Status.js";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -114,6 +115,9 @@ export class DiscordBot {
       suspensionSystem.start();
 
       console.log(`[Discord] Logged in as ${client.user.tag}.`);
+
+      const statusRotator = new StatusRotator(client);
+      statusRotator.start();
 
       await this.logger.success(
         "Bot Ready",
