@@ -16,11 +16,6 @@ const WarningSchema = new Schema(
       type: String,
       required: true,
     },
-    warningType: {
-      type: String,
-      enum: ["warning", "final_warning"],
-      required: true,
-    },
     reason: {
       type: String,
       required: true,
