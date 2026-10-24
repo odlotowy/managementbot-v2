@@ -316,6 +316,17 @@ export default {
 
       await SuspensionModel.deleteOne({ _id: suspension._id });
 
+      await logSuspension(interaction, {
+        action: "Suspension could not be applied",
+        targetId: member.id,
+        moderatorId: interaction.user.id,
+        reason,
+        duration: FormatDuration(durationMs),
+        expiresAt,
+        rolesRemoved: rolesToRemove.size,
+        error,
+      });
+
       await interaction.editReply(
         "The suspension could not be applied. Check the bot's role hierarchy and permissions.",
       );
@@ -376,7 +387,7 @@ export default {
     }
 
     await logSuspension(interaction, {
-      action: "Error",
+      action: "Suspension Applied",
       targetId: member.id,
       moderatorId: interaction.user.id,
       reason,
@@ -384,7 +395,6 @@ export default {
       expiresAt,
       rolesRemoved: rolesToRemove.size,
       dmSent,
-      error: "this is a test error message",
     });
 
     await interaction.editReply(
