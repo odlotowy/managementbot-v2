@@ -39,6 +39,19 @@ const WarningSchema = new Schema(
       type: Boolean,
       default: null,
     },
+    revokedBy: {
+      type: String,
+      default: null,
+    },
+    revokedAt: {
+      type: Date,
+      default: null,
+    },
+    revocationReason: {
+      type: String,
+      default: null,
+      maxlength: 500,
+    },
   },
   {
     timestamps: true,
