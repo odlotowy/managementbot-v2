@@ -4,6 +4,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import { config } from "../config.js";
 import { Logger } from "../util/Logger.js";
+import { monitorTelemetry } from "../util/MonitorTelemetry.js";
 
 import {
   ChatInputCommandInteraction,
@@ -17,7 +18,6 @@ import {
 
 export interface Command {
   data: SlashCommandBuilder;
-
   execute(interaction: ChatInputCommandInteraction): Promise<void>;
 }
 
@@ -34,7 +34,6 @@ export class CommandHandler {
 
   public async loadCommands(): Promise<void> {
     const currentDir = path.dirname(fileURLToPath(import.meta.url));
-
     const commandsPath = path.join(currentDir, "..", "commands");
 
     if (!fs.existsSync(commandsPath)) {
@@ -52,9 +51,7 @@ export class CommandHandler {
       for (const file of files) {
         const filePath = path.join(commandsPath, file);
         const fileUrl = pathToFileURL(filePath).href;
-
         const imported = await import(`${fileUrl}?update=${Date.now()}`);
-
         const command = imported.default ?? imported.command;
 
         if (!command?.data || !command?.execute) {
@@ -72,16 +69,13 @@ export class CommandHandler {
         }
 
         this.commands.set(commandName, command);
-
         console.log(`[Commands] Loaded /${commandName}`);
       }
 
       await this.logger.success(
         "Commands Loaded",
         `Successfully loaded **${this.commands.size}** commands.`,
-        {
-          commands: [...this.commands.keys()],
-        },
+        { commands: [...this.commands.keys()] },
       );
     } catch (error) {
       await this.logger.error("Command Loading Failed", error);
@@ -92,10 +86,7 @@ export class CommandHandler {
   }
 
   public async registerCommands(): Promise<void> {
-    const rest = new REST({
-      version: "10",
-    }).setToken(config.discordToken);
-
+    const rest = new REST({ version: "10" }).setToken(config.discordToken);
     const commandData = Array.from(this.commands.values()).map((command) =>
       command.data.toJSON(),
     );
@@ -107,9 +98,7 @@ export class CommandHandler {
         this.client.user!.id,
         config.discordGuildId,
       ),
-      {
-        body: commandData,
-      },
+      { body: commandData },
     );
 
     console.log(
@@ -124,13 +113,26 @@ export class CommandHandler {
 
     if (!command) {
       console.warn(`[Commands] Unknown command: /${interaction.commandName}`);
-
       return;
     }
 
+    const startedAt = performance.now();
+
     try {
       await command.execute(interaction);
+      monitorTelemetry.command(
+        interaction.commandName,
+        "success",
+        performance.now() - startedAt,
+      );
     } catch (error) {
+      monitorTelemetry.command(
+        interaction.commandName,
+        "failure",
+        performance.now() - startedAt,
+      );
+      monitorTelemetry.error("command", error, interaction.commandName);
+
       console.error(
         `[Commands] Error executing /${interaction.commandName}:`,
         error,
@@ -139,15 +141,23 @@ export class CommandHandler {
       const message = "An error occured while executing this command.";
 
       if (interaction.replied || interaction.deferred) {
-        await interaction.followUp({
-          embeds: [new EmbedBuilder().setDescription(message).setColor("Red")],
-          flags: 64,
-        });
+        await interaction
+          .followUp({
+            embeds: [
+              new EmbedBuilder().setDescription(message).setColor("Red"),
+            ],
+            flags: 64,
+          })
+          .catch(() => {});
       } else {
-        await interaction.reply({
-          embeds: [new EmbedBuilder().setDescription(message).setColor("Red")],
-          flags: 64,
-        });
+        await interaction
+          .reply({
+            embeds: [
+              new EmbedBuilder().setDescription(message).setColor("Red"),
+            ],
+            flags: 64,
+          })
+          .catch(() => {});
       }
     }
   }

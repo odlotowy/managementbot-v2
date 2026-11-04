@@ -7,6 +7,7 @@ import { startHealthServer } from "./health.js";
 import { DiscordBot } from "./discord/DiscordBot.js";
 import { config } from "./config.js";
 import { registerModMail } from "./systems/ModMailSystem.js";
+import { monitorTelemetry } from "./util/MonitorTelemetry.js";
 
 const gatewayMonitorUrl = process.env.BOT_MONITOR_URL;
 const gatewayMonitorSecret = process.env.BOT_MONITOR_SECRET;
@@ -126,6 +127,7 @@ async function main(): Promise<void> {
 
   process.on("unhandledRejection", async (reason) => {
     console.error("[Process] Unhandled Promise Rejection:", reason);
+    monitorTelemetry.error("process", reason);
 
     await discord.logger.fatal(
       "Unhandled Promise Rejection",
@@ -136,6 +138,7 @@ async function main(): Promise<void> {
 
   process.on("uncaughtException", async (error) => {
     console.error("[Process] Uncaught Exception:", error);
+    monitorTelemetry.error("process", error);
 
     await discord.logger.fatal(
       "Uncaught Exception",
@@ -179,6 +182,7 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     console.error("[Startup] Fatal error:", error);
+    monitorTelemetry.error("process", error);
 
     await discord.logger.fatal("Fatal Startup Error", error);
 
@@ -198,6 +202,7 @@ async function main(): Promise<void> {
 
 main().catch(async (error) => {
   console.log("[System] Fatal error:", error);
+  monitorTelemetry.error("process", error);
 
   await disconnectDatabase();
 

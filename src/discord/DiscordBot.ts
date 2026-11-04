@@ -38,6 +38,7 @@ import SOTMRequest from "../schemas/SOTMRequest.js";
 import { SuspensionSystem } from "../systems/SuspensionSystem.js";
 import Exam from "../schemas/Exam.js";
 import { StatusRotator } from "../util/Status.js";
+import { monitorTelemetry } from "../util/MonitorTelemetry.js";
 
 export class DiscordBot {
   public readonly client: Client;
@@ -99,6 +100,7 @@ export class DiscordBot {
       );
     } catch (error) {
       console.error("[Discord] Failed to start bot:", error);
+      monitorTelemetry.error("process", error);
 
       await this.logger.fatal("Bot Startup Failed", error);
 
@@ -107,6 +109,10 @@ export class DiscordBot {
   }
 
   private registerEvents(): void {
+    this.client.rest.on("rateLimited", (info) => {
+      monitorTelemetry.rateLimit(info);
+    });
+
     this.client.once(Events.ClientReady, async (client) => {
       this.logger.setReady();
 
@@ -154,6 +160,7 @@ export class DiscordBot {
 
     this.client.on(Events.Error, async (error) => {
       console.error("[Discord] Client error:", error);
+      monitorTelemetry.error("discord", error);
 
       await this.logger.error("Discord Client Error", error);
     });
@@ -166,6 +173,7 @@ export class DiscordBot {
 
     this.client.on(Events.ShardError, async (error, shardId) => {
       console.error(`[Discord] Shard ${shardId} error:`, error);
+      monitorTelemetry.error("discord", error);
 
       await this.logger.error(
         "Shard Error",
