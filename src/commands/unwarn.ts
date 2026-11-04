@@ -62,7 +62,7 @@ export default {
         },
       },
       {
-        new: true,
+        returnDocument: "after",
         sort: { createdAt: -1 },
       },
     ).catch((error: unknown) => {
