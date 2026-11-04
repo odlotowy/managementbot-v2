@@ -1,5 +1,7 @@
 import { connectDatabase, disconnectDatabase } from "./database.js";
 import dns from "dns";
+import mongoose from "mongoose";
+import { monitorEventLoopDelay } from "node:perf_hooks";
 import { startHealthServer } from "./health.js";
 
 import { DiscordBot } from "./discord/DiscordBot.js";
@@ -21,6 +23,12 @@ async function main(): Promise<void> {
   const discord = new DiscordBot();
   let gatewayStatus: "ready" | "disconnected" | "reconnecting" = "disconnected";
   let heartbeatInterval: ReturnType<typeof setInterval> | undefined;
+  let reconnectCount = 0;
+  let lastDisconnectAt: string | null = null;
+  let previousCpu = process.cpuUsage();
+  let previousCpuSampleAt = Date.now();
+  const eventLoop = monitorEventLoopDelay({ resolution: 20 });
+  eventLoop.enable();
 
   // Track the actual Discord Gateway WebSocket state, not the REST API state.
   discord.client.on("ready", () => {
@@ -31,9 +39,11 @@ async function main(): Promise<void> {
   });
   discord.client.on("shardDisconnect", () => {
     gatewayStatus = "disconnected";
+    lastDisconnectAt = new Date().toISOString();
   });
   discord.client.on("shardReconnecting", () => {
     gatewayStatus = "reconnecting";
+    reconnectCount += 1;
   });
   discord.client.on("shardResume", () => {
     gatewayStatus = "ready";
@@ -46,8 +56,37 @@ async function main(): Promise<void> {
     if (discord.client.isReady()) gatewayStatus = "ready";
     else if (gatewayStatus === "ready") gatewayStatus = "disconnected";
 
-    const memoryUsageMb = Math.round(process.memoryUsage().rss / 1024 / 1024);
+    const memory = process.memoryUsage();
+    const memoryUsageMb = Math.round(memory.rss / 1024 / 1024);
+    const heapUsedMb = Math.round(memory.heapUsed / 1024 / 1024);
+    const heapTotalMb = Math.round(memory.heapTotal / 1024 / 1024);
     const ping = discord.client.ws.ping;
+
+    const now = Date.now();
+    const elapsedMicros = Math.max(1, (now - previousCpuSampleAt) * 1000);
+    const cpu = process.cpuUsage(previousCpu);
+    const cpuPercent =
+      Math.round(((cpu.user + cpu.system) / elapsedMicros) * 1000) / 10;
+    previousCpu = process.cpuUsage();
+    previousCpuSampleAt = now;
+
+    let mongoStatus: "connected" | "disconnected" = "disconnected";
+    let mongoLatencyMs: number | null = null;
+    if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+      const mongoStartedAt = Date.now();
+      try {
+        await mongoose.connection.db.admin().ping();
+        mongoStatus = "connected";
+        mongoLatencyMs = Date.now() - mongoStartedAt;
+      } catch {
+        mongoStatus = "disconnected";
+      }
+    }
+
+    const eventLoopDelayMs = Number.isFinite(eventLoop.mean)
+      ? Math.round((eventLoop.mean / 1_000_000) * 10) / 10
+      : 0;
+    eventLoop.reset();
 
     try {
       const response = await fetch(gatewayMonitorUrl, {
@@ -61,6 +100,17 @@ async function main(): Promise<void> {
           pingMs: Number.isFinite(ping) && ping >= 0 ? ping : null,
           uptimeSeconds: Math.floor(process.uptime()),
           memoryUsageMb,
+          heapUsedMb,
+          heapTotalMb,
+          cpuPercent,
+          eventLoopDelayMs,
+          mongoStatus,
+          mongoLatencyMs,
+          reconnectCount,
+          lastDisconnectAt,
+          nodeVersion: process.version,
+          platform: process.platform,
+          arch: process.arch,
           shardId: 0,
         }),
         signal: AbortSignal.timeout(8000),
@@ -137,6 +187,7 @@ async function main(): Promise<void> {
 
   async function shutdown() {
     if (heartbeatInterval) clearInterval(heartbeatInterval);
+    eventLoop.disable();
     await disconnectDatabase();
     process.exit(0);
   }
