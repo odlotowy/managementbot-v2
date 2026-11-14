@@ -50,27 +50,27 @@ export default {
           .addOptions(
             new StringSelectMenuOptionBuilder()
               .setLabel("Server Suggestion")
-              .setEmoji("<:pencil1:1530895405250908260>")
+              .setEmoji("<:globe:1566813240116125826>")
               .setValue("server_suggestion"),
             new StringSelectMenuOptionBuilder()
               .setLabel("Feedback")
-              .setEmoji("<:announcement:1525789206616608839>")
+              .setEmoji("<:megaphone:1566813247779377152>")
               .setValue("feedback"),
             new StringSelectMenuOptionBuilder()
               .setLabel("Bug")
-              .setEmoji("<:cross1:1525789345376768020>")
+              .setEmoji("<:cross:1566812455663837265>")
               .setValue("bug"),
             new StringSelectMenuOptionBuilder()
               .setLabel("Suggestion")
-              .setEmoji("<:question1:1525789921749766194>")
+              .setEmoji("<:question:1566812566301311156>")
               .setValue("suggestion"),
             new StringSelectMenuOptionBuilder()
               .setLabel("Rule Change")
-              .setEmoji(":vacancies:1525790005077872650>")
+              .setEmoji("<:icon_rocket:1566813252858548234>")
               .setValue("rule_change"),
             new StringSelectMenuOptionBuilder()
               .setLabel("Other")
-              .setEmoji("<:discord:1525789419687247922>")
+              .setEmoji("<:icon_pin:1566813251357118474>")
               .setValue("other"),
           ),
       );

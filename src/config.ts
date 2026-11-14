@@ -36,6 +36,10 @@ if (!process.env.OPENAI_SUMMARY_MODEL) {
   throw new Error("[System] Missing OPENAI_SUMMARY_MODEL.");
 }
 
+if (!process.env.MANAGEMENT_API_URL) {
+  throw new Error("[System] Missing MANAGEMENT_API_URL.");
+}
+
 export const config = {
   discordToken: process.env.DISCORD_TOKEN,
 
@@ -54,4 +58,6 @@ export const config = {
   OPENAI_TRANSCRIPTION_MODEL: process.env.OPENAI_TRANSCRIPTION_MODEL,
 
   OPENAI_SUMMARY_MODEL: process.env.OPENAI_SUMMARY_MODEL,
+
+  MANAGEMENT_API_URL: process.env.MANAGEMENT_API_URL,
 };
