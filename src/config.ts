@@ -40,10 +40,6 @@ if (!process.env.MANAGEMENT_API_URL) {
   throw new Error("[System] Missing MANAGEMENT_API_URL.");
 }
 
-if (!process.env.MONITOR_SECRET) {
-  throw new Error("[System] Misisng MONITOR_SECRET.");
-}
-
 export const config = {
   discordToken: process.env.DISCORD_TOKEN,
 
@@ -65,5 +61,5 @@ export const config = {
 
   MANAGEMENT_API_URL: process.env.MANAGEMENT_API_URL,
 
-  MONITOR_SECRET: process.env.MONITOR_SECRET,
+  MONITOR_SECRET: process.env.BOT_MONITOR_SECRET,
 };
