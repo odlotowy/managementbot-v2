@@ -1,10 +1,10 @@
 import {
-  ChatInputCommandInteraction,
-  ContainerBuilder,
-  MessageFlags,
-  SeparatorBuilder,
   SlashCommandBuilder,
+  ChatInputCommandInteraction,
+  MessageFlags,
+  ContainerBuilder,
   TextDisplayBuilder,
+  SeparatorBuilder,
 } from "discord.js";
 import { config } from "../config.js";
 
@@ -30,13 +30,17 @@ export default {
 
     try {
       const apiUrl = config.MANAGEMENT_API_URL;
-      const botToken = config.discordToken;
+      const monitorSecret = config.MONITOR_SECRET;
+
+      if (!apiUrl || !monitorSecret) {
+        throw new Error("Missing management API configuration.");
+      }
 
       const response = await fetch(
-        `${apiUrl.replace(/\/$/, "")}/api/bot/leaderboard`,
+        `${apiUrl.replace(/\/$/, "")}/api/internal/leaderboard`,
         {
           headers: {
-            Authorization: `Bot ${botToken}`,
+            "x-bot-monitor-secret": monitorSecret,
           },
         },
       );
@@ -56,7 +60,7 @@ export default {
         )
         .addSeparatorComponents(new SeparatorBuilder().setDivider(true));
 
-      if (!data.entries.length) {
+      if (data.entries.length === 0) {
         container.addTextDisplayComponents(
           new TextDisplayBuilder().setContent(
             "There are currently no approved tasks recorded this week.",
@@ -70,7 +74,7 @@ export default {
 
           const user = entry.discordId
             ? `<@${entry.discordId}>`
-            : (entry.globalName ?? entry.username ?? "Unknown user");
+            : entry.globalName || entry.username || "Unknown user";
 
           const taskLabel = entry.count === 1 ? "task" : "tasks";
 
@@ -100,8 +104,20 @@ export default {
     } catch (error) {
       console.error("[Leaderboard Command]", error);
 
+      const errorContainer = new ContainerBuilder()
+        .setAccentColor(0xe74c3c)
+        .addTextDisplayComponents(
+          new TextDisplayBuilder().setContent(
+            "# Leaderboard unavailable\nUnable to retrieve the leaderboard. Please try again later.",
+          ),
+        );
+
       await interaction.editReply({
-        content: "Unable to retrieve the leaderboard. Please try again later.",
+        components: [errorContainer],
+        flags: MessageFlags.IsComponentsV2,
+        allowedMentions: {
+          parse: [],
+        },
       });
     }
   },
