@@ -175,322 +175,335 @@ function createNotesPage(
   return container;
 }
 
-export const data = new SlashCommandBuilder()
-  .setName("notes")
-  .setDescription("Manage private staff notes.")
-  .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
+export default {
+  data: new SlashCommandBuilder()
+    .setName("notes")
+    .setDescription("Manage private staff notes.")
+    .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
 
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("add")
-      .setDescription("Add a note to a staff member.")
-      .addUserOption((option) =>
-        option
-          .setName("member")
-          .setDescription("Staff member")
-          .setRequired(true),
-      )
-      .addStringOption((option) =>
-        option
-          .setName("category")
-          .setDescription("Note category")
-          .setRequired(true)
-          .addChoices(
-            { name: "General", value: "General" },
-            { name: "Performance", value: "Performance" },
-            { name: "Behaviour", value: "Behaviour" },
-            { name: "Concern", value: "Concern" },
-          ),
-      ),
-  )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("add")
+        .setDescription("Add a note to a staff member.")
+        .addUserOption((option) =>
+          option
+            .setName("member")
+            .setDescription("Staff member")
+            .setRequired(true),
+        )
+        .addStringOption((option) =>
+          option
+            .setName("category")
+            .setDescription("Note category")
+            .setRequired(true)
+            .addChoices(
+              { name: "General", value: "General" },
+              { name: "Performance", value: "Performance" },
+              { name: "Behaviour", value: "Behaviour" },
+              { name: "Concern", value: "Concern" },
+            ),
+        ),
+    )
 
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("view")
-      .setDescription("View a staff member's notes.")
-      .addUserOption((option) =>
-        option
-          .setName("member")
-          .setDescription("Staff member")
-          .setRequired(true),
-      ),
-  )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("view")
+        .setDescription("View a staff member's notes.")
+        .addUserOption((option) =>
+          option
+            .setName("member")
+            .setDescription("Staff member")
+            .setRequired(true),
+        ),
+    )
 
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("delete")
-      .setDescription("Delete a staff note.")
-      .addIntegerOption((option) =>
-        option
-          .setName("id")
-          .setDescription("Note ID")
-          .setRequired(true)
-          .setMinValue(1),
-      ),
-  )
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("delete")
+        .setDescription("Delete a staff note.")
+        .addIntegerOption((option) =>
+          option
+            .setName("id")
+            .setDescription("Note ID")
+            .setRequired(true)
+            .setMinValue(1),
+        ),
+    )
 
-  .addSubcommand((subcommand) =>
-    subcommand
-      .setName("edit")
-      .setDescription("Edit a staff note.")
-      .addIntegerOption((option) =>
-        option
-          .setName("id")
-          .setDescription("Note ID")
-          .setRequired(true)
-          .setMinValue(1),
-      ),
-  );
+    .addSubcommand((subcommand) =>
+      subcommand
+        .setName("edit")
+        .setDescription("Edit a staff note.")
+        .addIntegerOption((option) =>
+          option
+            .setName("id")
+            .setDescription("Note ID")
+            .setRequired(true)
+            .setMinValue(1),
+        ),
+    ),
 
-export async function execute(interaction: ChatInputCommandInteraction) {
-  if (
-    !interaction.guild ||
-    !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
-  ) {
-    return replyV2(
-      interaction,
-      createStatus(
-        "Access Denied",
-        "You don't have permission to manage staff notes.",
-        COLORS.error,
-      ),
-    );
-  }
-
-  const subcommand = interaction.options.getSubcommand();
-
-  try {
-    // ADD NOTE
-    if (subcommand === "add") {
-      const member = interaction.options.getUser("member", true);
-      const category = interaction.options.getString(
-        "category",
-        true,
-      ) as NoteCategory;
-
-      const modalId = `staff_notes_add_${interaction.id}`;
-
-      await interaction.showModal(createNoteModal(modalId, "Add Staff Note"));
-
-      const submitted = await interaction
-        .awaitModalSubmit({
-          time: MODAL_TIMEOUT,
-          filter: (modal) =>
-            modal.customId === modalId && modal.user.id === interaction.user.id,
-        })
-        .catch(() => null);
-
-      if (!submitted) return;
-
-      const content = submitted.fields.getTextInputValue("content");
-
-      const latestNote = await StaffNote.findOne().sort({ noteId: -1 });
-
-      const noteId = (latestNote?.noteId ?? 0) + 1;
-
-      await StaffNote.create({
-        noteId,
-        userId: member.id,
-        authorId: interaction.user.id,
-        content,
-        category,
-      });
-
-      return submitted.reply({
-        components: [
-          createStatus(
-            "Note Added",
-            [
-              `Successfully added note **#${noteId}**.`,
-              "",
-              `**Staff member:** ${member}`,
-              `**Category:** ${category}`,
-              `**Added by:** ${interaction.user}`,
-            ].join("\n"),
-            COLORS.success,
-          ),
-        ],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      });
-    }
-
-    // VIEW NOTES
-    if (subcommand === "view") {
-      const member = interaction.options.getUser("member", true);
-
-      const notes = await StaffNote.find({
-        userId: member.id,
-      }).sort({ createdAt: -1 });
-
-      if (!notes.length) {
-        return replyV2(
-          interaction,
-          createStatus(
-            "No Staff Notes",
-            `No notes have been recorded for ${member}.`,
-          ),
-        );
-      }
-
-      let currentPage = 0;
-
-      await interaction.reply({
-        components: [createNotesPage(member, notes, currentPage)],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      });
-
-      const message = await interaction.fetchReply();
-
-      const collector = message.createMessageComponentCollector({
-        time: 120_000,
-        filter: (component) => component.user.id === interaction.user.id,
-      });
-
-      collector.on("collect", async (component: ButtonInteraction) => {
-        if (
-          component.customId !== "staff_notes_previous" &&
-          component.customId !== "staff_notes_next"
-        ) {
-          return;
-        }
-
-        if (component.customId === "staff_notes_previous") {
-          currentPage = Math.max(0, currentPage - 1);
-        } else {
-          currentPage = Math.min(
-            Math.ceil(notes.length / PAGE_SIZE) - 1,
-            currentPage + 1,
-          );
-        }
-
-        await component.update({
-          components: [createNotesPage(member, notes, currentPage)],
-          allowedMentions: { parse: [] },
-        });
-      });
-
+  async execute(interaction: ChatInputCommandInteraction): Promise<void> {
+    if (
+      !interaction.guild ||
+      !interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)
+    ) {
+      await replyV2(
+        interaction,
+        createStatus(
+          "Access Denied",
+          "You don't have permission to manage staff notes.",
+          COLORS.error,
+        ),
+      );
       return;
     }
 
-    // DELETE NOTE
-    if (subcommand === "delete") {
-      const id = interaction.options.getInteger("id", true);
+    const subcommand = interaction.options.getSubcommand();
 
-      const note = await StaffNote.findOneAndDelete({
-        noteId: id,
-      });
+    try {
+      // ADD NOTE
+      if (subcommand === "add") {
+        const member = interaction.options.getUser("member", true);
+        const category = interaction.options.getString(
+          "category",
+          true,
+        ) as NoteCategory;
 
-      if (!note) {
-        return replyV2(
-          interaction,
-          createStatus(
-            "Note Not Found",
-            `Staff note **#${id}** does not exist.`,
-            COLORS.error,
-          ),
-        );
+        const modalId = `staff_notes_add_${interaction.id}`;
+
+        await interaction.showModal(createNoteModal(modalId, "Add Staff Note"));
+
+        const submitted = await interaction
+          .awaitModalSubmit({
+            time: MODAL_TIMEOUT,
+            filter: (modal) =>
+              modal.customId === modalId &&
+              modal.user.id === interaction.user.id,
+          })
+          .catch(() => null);
+
+        if (!submitted) return;
+
+        const content = submitted.fields.getTextInputValue("content");
+
+        const latestNote = await StaffNote.findOne().sort({ noteId: -1 });
+
+        const noteId = (latestNote?.noteId ?? 0) + 1;
+
+        await StaffNote.create({
+          noteId,
+          userId: member.id,
+          authorId: interaction.user.id,
+          content,
+          category,
+        });
+
+        await submitted.reply({
+          components: [
+            createStatus(
+              "Note Added",
+              [
+                `Successfully added note **#${noteId}**.`,
+                "",
+                `**Staff member:** ${member}`,
+                `**Category:** ${category}`,
+                `**Added by:** ${interaction.user}`,
+              ].join("\n"),
+              COLORS.success,
+            ),
+          ],
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+        return;
       }
 
-      return replyV2(
-        interaction,
-        createStatus(
-          "Note Deleted",
-          [
-            `Staff note **#${id}** has been deleted.`,
-            "",
-            `**Staff member:** <@${note.userId}>`,
-            `**Category:** ${note.category}`,
-            `**Deleted by:** ${interaction.user}`,
-          ].join("\n"),
-          COLORS.success,
-        ),
-      );
-    }
+      // VIEW NOTES
+      if (subcommand === "view") {
+        const member = interaction.options.getUser("member", true);
 
-    // EDIT NOTE
-    if (subcommand === "edit") {
-      const id = interaction.options.getInteger("id", true);
+        const notes = await StaffNote.find({
+          userId: member.id,
+        }).sort({ createdAt: -1 });
 
-      const note = await StaffNote.findOne({
-        noteId: id,
-      });
+        if (!notes.length) {
+          await replyV2(
+            interaction,
+            createStatus(
+              "No Staff Notes",
+              `No notes have been recorded for ${member}.`,
+            ),
+          );
+          return;
+        }
 
-      if (!note) {
-        return replyV2(
-          interaction,
-          createStatus(
-            "Note Not Found",
-            `Staff note **#${id}** does not exist.`,
-            COLORS.error,
-          ),
-        );
+        let currentPage = 0;
+
+        await interaction.reply({
+          components: [createNotesPage(member, notes, currentPage)],
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+
+        const message = await interaction.fetchReply();
+
+        const collector = message.createMessageComponentCollector({
+          time: 120_000,
+          filter: (component) => component.user.id === interaction.user.id,
+        });
+
+        collector.on("collect", async (component: ButtonInteraction) => {
+          if (
+            component.customId !== "staff_notes_previous" &&
+            component.customId !== "staff_notes_next"
+          ) {
+            return;
+          }
+
+          if (component.customId === "staff_notes_previous") {
+            currentPage = Math.max(0, currentPage - 1);
+          } else {
+            currentPage = Math.min(
+              Math.ceil(notes.length / PAGE_SIZE) - 1,
+              currentPage + 1,
+            );
+          }
+
+          await component.update({
+            components: [createNotesPage(member, notes, currentPage)],
+            allowedMentions: { parse: [] },
+          });
+        });
+
+        return;
       }
 
-      const modalId = `staff_notes_edit_${interaction.id}`;
+      // DELETE NOTE
+      if (subcommand === "delete") {
+        const id = interaction.options.getInteger("id", true);
 
-      await interaction.showModal(
-        createNoteModal(modalId, `Edit Note #${id}`, note.content),
-      );
+        const note = await StaffNote.findOneAndDelete({
+          noteId: id,
+        });
 
-      const submitted = await interaction
-        .awaitModalSubmit({
-          time: MODAL_TIMEOUT,
-          filter: (modal) =>
-            modal.customId === modalId && modal.user.id === interaction.user.id,
-        })
-        .catch(() => null);
+        if (!note) {
+          await replyV2(
+            interaction,
+            createStatus(
+              "Note Not Found",
+              `Staff note **#${id}** does not exist.`,
+              COLORS.error,
+            ),
+          );
+          return;
+        }
 
-      if (!submitted) return;
-
-      const content = submitted.fields.getTextInputValue("content");
-
-      await StaffNote.updateOne(
-        { noteId: id },
-        {
-          $set: {
-            content,
-          },
-        },
-        { runValidators: true },
-      );
-
-      return submitted.reply({
-        components: [
+        await replyV2(
+          interaction,
           createStatus(
-            "Note Updated",
+            "Note Deleted",
             [
-              `Staff note **#${id}** has been updated.`,
+              `Staff note **#${id}** has been deleted.`,
               "",
               `**Staff member:** <@${note.userId}>`,
               `**Category:** ${note.category}`,
-              `**Updated by:** ${interaction.user}`,
+              `**Deleted by:** ${interaction.user}`,
             ].join("\n"),
             COLORS.success,
           ),
-        ],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      });
+        );
+        return;
+      }
+
+      // EDIT NOTE
+      if (subcommand === "edit") {
+        const id = interaction.options.getInteger("id", true);
+
+        const note = await StaffNote.findOne({
+          noteId: id,
+        });
+
+        if (!note) {
+          await replyV2(
+            interaction,
+            createStatus(
+              "Note Not Found",
+              `Staff note **#${id}** does not exist.`,
+              COLORS.error,
+            ),
+          );
+          return;
+        }
+
+        const modalId = `staff_notes_edit_${interaction.id}`;
+
+        await interaction.showModal(
+          createNoteModal(modalId, `Edit Note #${id}`, note.content),
+        );
+
+        const submitted = await interaction
+          .awaitModalSubmit({
+            time: MODAL_TIMEOUT,
+            filter: (modal) =>
+              modal.customId === modalId &&
+              modal.user.id === interaction.user.id,
+          })
+          .catch(() => null);
+
+        if (!submitted) return;
+
+        const content = submitted.fields.getTextInputValue("content");
+
+        await StaffNote.updateOne(
+          { noteId: id },
+          {
+            $set: {
+              content,
+            },
+          },
+          { runValidators: true },
+        );
+
+        await submitted.reply({
+          components: [
+            createStatus(
+              "Note Updated",
+              [
+                `Staff note **#${id}** has been updated.`,
+                "",
+                `**Staff member:** <@${note.userId}>`,
+                `**Category:** ${note.category}`,
+                `**Updated by:** ${interaction.user}`,
+              ].join("\n"),
+              COLORS.success,
+            ),
+          ],
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+    } catch (error) {
+      console.error("[Staff Notes] Error:", error);
+
+      const panel = createStatus(
+        "Something Went Wrong",
+        "An error occurred while processing this request. Please try again later.",
+        COLORS.error,
+      );
+
+      if (interaction.replied || interaction.deferred) {
+        await interaction.followUp({
+          components: [panel],
+          flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+          allowedMentions: { parse: [] },
+        });
+        return;
+      }
+
+      await replyV2(interaction, panel);
+      return;
     }
-  } catch (error) {
-    console.error("[Staff Notes] Error:", error);
-
-    const panel = createStatus(
-      "Something Went Wrong",
-      "An error occurred while processing this request. Please try again later.",
-      COLORS.error,
-    );
-
-    if (interaction.replied || interaction.deferred) {
-      return interaction.followUp({
-        components: [panel],
-        flags: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-        allowedMentions: { parse: [] },
-      });
-    }
-
-    return replyV2(interaction, panel);
-  }
-}
+  },
+};
